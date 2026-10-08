@@ -1,12 +1,29 @@
 import KartuProduk from "@/components/KartuProduk";
-import CatatanBelumAktif from "@/components/CatatanBelumAktif";
-import { produkContoh } from "@/lib/data-contoh";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { toko } from "@/lib/toko";
 
-// US-01: halaman ini masih memakai data contoh.
-// Tugas peserta: ambil daftar produk dari tabel "produk" di Supabase, di sisi server.
-export default function HalamanKatalog() {
-  const daftarProduk = produkContoh;
+export const dynamic = "force-dynamic";
+
+export default async function HalamanKatalog() {
+  let daftarProduk = [];
+  let gagalMemuatProduk = false;
+
+  try {
+    const supabase = createServerSupabaseClient();
+    const { data, error } = await supabase
+      .from("produk")
+      .select("id, nama, harga, foto_url, kategori")
+      .order("id", { ascending: true });
+
+    if (error) {
+      throw error;
+    }
+
+    daftarProduk = data || [];
+  } catch (error) {
+    console.error("Gagal mengambil data produk untuk katalog:", error);
+    gagalMemuatProduk = true;
+  }
 
   return (
     <>
@@ -22,14 +39,20 @@ export default function HalamanKatalog() {
         <h2 id="judul-produk" className="text-xl font-bold">
           Produk kami
         </h2>
-        <CatatanBelumAktif>
-          Masih data contoh. Sambungkan ke database: lihat US-01 di docs/user-stories.md.
-        </CatatanBelumAktif>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-          {daftarProduk.map((produk) => (
-            <KartuProduk key={produk.id} produk={produk} />
-          ))}
-        </div>
+        {gagalMemuatProduk ? (
+          <p role="alert" className="text-bahaya">
+            Produk tidak dapat dimuat. Periksa koneksi database dan konfigurasi
+            SUPABASE_URL serta SUPABASE_SECRET_KEY, lalu coba lagi.
+          </p>
+        ) : daftarProduk.length === 0 ? (
+          <p className="text-teks-lembut">Belum ada produk</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+            {daftarProduk.map((produk) => (
+              <KartuProduk key={produk.id} produk={produk} />
+            ))}
+          </div>
+        )}
       </section>
     </>
   );
